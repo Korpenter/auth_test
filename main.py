@@ -3,17 +3,23 @@ from pydantic import BaseModel
 from telethon import TelegramClient
 import asyncio
 
-app = FastAPI()
+
 class AuthDetails(BaseModel):
     api_id: int
     api_hash: str
     phone: str
 
+
 class VerifyDetails(AuthDetails):
     code: str
+    password: str = None  # 2FA
+
 
 clients_dict = {}
 lock = asyncio.Lock()
+
+app = FastAPI()
+
 
 @app.post("/start_auth")
 async def start_auth(details: AuthDetails):
@@ -28,10 +34,11 @@ async def start_auth(details: AuthDetails):
                 
             if not await client.is_user_authorized():
                 await client.send_code_request(details.phone)
-                return {"message": "Code sent, awaiting verification"}
-            return {"message": "Already authorized"}
+                return {"message": "Введите код авторизации, и пароль от 2FA (если включена)"}
+            return {"message": "Авторизован"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/verify_code")
 async def verify_code(details: VerifyDetails):
@@ -43,11 +50,19 @@ async def verify_code(details: VerifyDetails):
                 clients_dict[details.phone] = client
             else:
                 client = clients_dict[details.phone]
-                
-            await client.sign_in(details.phone, details.code)
-            return {"message": "Signed in successfully"}
+
+            try:
+                await client.sign_in(details.phone, details.code)
+            except errors.SessionPasswordNeededError:
+                if details.password:
+                    await client.sign_in(password=details.password)
+                else:
+                    raise HTTPException(status_code=403, detail="2FA включена, повторите с вводом пароля 2FA")
+
+            return {"message": "Авторизован"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/send_message")
 async def send_message(details: AuthDetails, message: str = "Hello from FastAPI!"):
@@ -61,9 +76,9 @@ async def send_message(details: AuthDetails, message: str = "Hello from FastAPI!
                 client = clients_dict[details.phone]
 
             if not await client.is_user_authorized():
-                raise HTTPException(status_code=401, detail="User not authorized")
+                raise HTTPException(status_code=401, detail="Не авторизован.")
             
             await client.send_message('me', message)
-            return {"message": "Message sent successfully"}
+            return {"message": "message sent"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
