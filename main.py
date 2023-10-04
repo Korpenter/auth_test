@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from telethon import TelegramClient
+from telethon import TelegramClient, errors
 import asyncio
 
 
