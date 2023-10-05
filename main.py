@@ -33,7 +33,8 @@ async def start_auth(details: AuthDetails):
             if details.phone not in clients_dict:
                 client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
-                phone_code_hash = await client.send_code_request(details.phone)
+                sent_code = await client.send_code_request(details.phone)
+                phone_code_hash = sent_code.phone_code_hash 
                 clients_dict[details.phone] = ClientInfo(client, phone_code_hash)
             else:
                 client_info = clients_dict[details.phone]
