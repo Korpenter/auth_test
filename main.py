@@ -74,16 +74,16 @@ async def verify_code(details: VerifyDetails):
 async def send_message(details: AuthDetails, message: str = "Hello from FastAPI!"):
     async with lock:
         try:
-            if details.phone not in clients_dict or not clients_dict[details.phone].is_connected():
+            if details.phone not in clients_dict or not clients_dict[details.phone].client.is_connected():
                 client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
-                clients_dict[details.phone] = client
+                clients_dict[details.phone] = ClientInfo(client, "")
             else:
-                client = clients_dict[details.phone]
+                client = clients_dict[details.phone].client
 
             if not await client.is_user_authorized():
                 raise HTTPException(status_code=401, detail="Не авторизован.")
-
+            
             await client.send_message('me', message)
             return {"message": "message sent"}
         except Exception as e:
