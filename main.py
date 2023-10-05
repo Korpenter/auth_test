@@ -15,10 +15,15 @@ class VerifyDetails(AuthDetails):
     password: str = None  # 2FA
 
 
-clients_dict = {}
 lock = asyncio.Lock()
-
 app = FastAPI()
+clients_dict = {}
+
+
+class ClientInfo:
+    def __init__(self, client, phone_code_hash=None):
+        self.client = client
+        self.phone_code_hash = phone_code_hash
 
 
 @app.post("/start_auth")
@@ -28,12 +33,13 @@ async def start_auth(details: AuthDetails):
             if details.phone not in clients_dict:
                 client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
-                clients_dict[details.phone] = client
+                phone_code_hash = await client.send_code_request(details.phone)
+                clients_dict[details.phone] = ClientInfo(client, phone_code_hash)
             else:
-                client = clients_dict[details.phone]
+                client_info = clients_dict[details.phone]
+                client = client_info.client
                 
             if not await client.is_user_authorized():
-                await client.send_code_request(details.phone)
                 return {"message": "Введите код авторизации, и пароль от 2FA (если включена)"}
             return {"message": "Авторизован"}
         except Exception as e:
@@ -45,14 +51,13 @@ async def verify_code(details: VerifyDetails):
     async with lock:
         try:
             if details.phone not in clients_dict:
-                client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
-                await client.connect()
-                clients_dict[details.phone] = client
-            else:
-                client = clients_dict[details.phone]
+                raise HTTPException(status_code=400, detail="Аутентификация не начата для этого номера телефона")
 
+            client_info = clients_dict[details.phone]
+            client = client_info.client
+            
             try:
-                await client.sign_in(details.phone, details.code)
+                await client.sign_in(details.phone, details.code, phone_code_hash=client_info.phone_code_hash)
             except errors.SessionPasswordNeededError:
                 if details.password:
                     await client.sign_in(password=details.password)
@@ -60,25 +65,5 @@ async def verify_code(details: VerifyDetails):
                     raise HTTPException(status_code=403, detail="2FA включена, повторите с вводом пароля 2FA")
 
             return {"message": "Авторизован"}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/send_message")
-async def send_message(details: AuthDetails, message: str = "Hello from FastAPI!"):
-    async with lock:
-        try:
-            if details.phone not in clients_dict or not clients_dict[details.phone].is_connected():
-                client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
-                await client.connect()
-                clients_dict[details.phone] = client
-            else:
-                client = clients_dict[details.phone]
-
-            if not await client.is_user_authorized():
-                raise HTTPException(status_code=401, detail="Не авторизован.")
-            
-            await client.send_message('me', message)
-            return {"message": "message sent"}
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
