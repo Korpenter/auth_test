@@ -26,7 +26,7 @@ async def start_auth(details: AuthDetails):
     async with lock:
         try:
             if details.phone not in clients_dict:
-                client = TelegramClient(details.phone, details.api_id, details.api_hash)
+                client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
                 clients_dict[details.phone] = client
             else:
@@ -45,7 +45,7 @@ async def verify_code(details: VerifyDetails):
     async with lock:
         try:
             if details.phone not in clients_dict:
-                client = TelegramClient(details.phone, details.api_id, details.api_hash)
+                client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
                 clients_dict[details.phone] = client
             else:
@@ -69,7 +69,7 @@ async def send_message(details: AuthDetails, message: str = "Hello from FastAPI!
     async with lock:
         try:
             if details.phone not in clients_dict or not clients_dict[details.phone].is_connected():
-                client = TelegramClient(details.phone, details.api_id, details.api_hash)
+                client = TelegramClient(details.phone, details.api_id, details.api_hash, system_version="4.16.30-vxTESTINGBENCH")
                 await client.connect()
                 clients_dict[details.phone] = client
             else:
