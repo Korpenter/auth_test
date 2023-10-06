@@ -4,11 +4,12 @@ fastapi
 idna
 pyaes
 pyasn1
-pydantic
+pydantic==2.4.1
 pydantic_core
 rsa
 sniffio
 starlette
 Telethon
 typing_extensions
+python-multipart
 uvicorn[standard]==0.17.*
